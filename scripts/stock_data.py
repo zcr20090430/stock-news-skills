@@ -244,6 +244,38 @@ def get_sina_kline(code: str, days: int = 30) -> List[Dict]:
     return results
 
 
+def get_yahoo_kline(symbol: str, days: int = 30) -> List[Dict]:
+    """
+    从Yahoo Finance获取K线数据（主要用于美股）
+    symbol: 美股ticker，如 MU, NVDA, AAPL
+    """
+    results = []
+    
+    try:
+        import yfinance as yf
+        
+        ticker = yf.Ticker(symbol)
+        period = '3mo' if days <= 90 else '6mo'
+        hist = ticker.history(period=period)
+        
+        if hist is not None and not hist.empty:
+            for idx, row in hist.tail(days).iterrows():
+                results.append({
+                    'date': idx.strftime('%Y-%m-%d'),
+                    'open': round(float(row['Open']), 2),
+                    'high': round(float(row['High']), 2),
+                    'low': round(float(row['Low']), 2),
+                    'close': round(float(row['Close']), 2),
+                    'volume': int(row['Volume']),
+                })
+    except ImportError:
+        print("yfinance未安装，跳过Yahoo Finance数据获取", file=sys.stderr)
+    except Exception as e:
+        print(f"Yahoo Finance数据获取失败: {e}", file=sys.stderr)
+    
+    return results
+
+
 def get_eastmoney_kline(code: str, days: int = 30, market: str = 'auto') -> List[Dict]:
     """
     从东方财富获取K线数据
@@ -359,17 +391,20 @@ def get_stock_data(keyword: str, days: int = 30) -> Dict:
     else:
         code = symbol
     
-    # 尝试东方财富（数据更全）
-    klines = get_eastmoney_kline(code, days, market)
-    source = 'eastmoney'
+    # 美股优先使用Yahoo Finance
+    if market == 'us':
+        klines = get_yahoo_kline(code, days)
+        source = 'yahoo'
+    
+    if not klines:
+        klines = get_eastmoney_kline(code, days, market)
+        source = 'eastmoney'
     
     if not klines and market == 'hk':
-        # 港股可能需要去掉前导零
         code_stripped = code.lstrip('0')
         klines = get_eastmoney_kline(code_stripped, days, 'hk')
     
     if not klines:
-        # 回退到新浪（仅A股）
         if market in ('sh', 'sz', 'auto'):
             klines = get_sina_kline(code, days)
             source = 'sina'

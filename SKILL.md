@@ -33,6 +33,7 @@ python3 ~/.qclaw/skills/stock-news-analyzer/scripts/multi_source_search.py "<股
 - **财联社** - 快讯速报
 - **政策新闻** - 相关政策法规
 - **公司公告** - 官方公告信息
+- **Yahoo Finance** - 美股新闻，海外研报资讯（通过yfinance）
 - **行业新闻** - 行业动态趋势
 
 根据这些数据源的信息, 分析当前股票的PE,以及远期盈利能力,和未来面临的同品类公司竞争关系, 以及当前国际实事,政策对公司未来发展的前景展望;

@@ -301,6 +301,74 @@ def search_company_announcement(keyword: str, stock_code: str = '', max_items: i
     return results
 
 
+def search_yahoo_finance(keyword: str, days: int = 90, max_items: int = 15) -> List[Dict]:
+    """搜索Yahoo Finance新闻（主要用于美股）"""
+    results = []
+    
+    try:
+        import yfinance as yf
+        
+        ticker_map = {
+            '美光': 'MU', '美光科技': 'MU', '英伟达': 'NVDA', '苹果': 'AAPL',
+            '特斯拉': 'TSLA', '微软': 'MSFT', '亚马逊': 'AMZN', '谷歌': 'GOOGL',
+            '英特尔': 'INTC', '高通': 'QCOM', '台积电': 'TSM', '拼多多': 'PDD',
+            '京东': 'JD', '蔚来': 'NIO', '小鹏': 'XPEV', '理想': 'LI',
+            '阿里巴巴': 'BABA', '阿里': 'BABA', '百度': 'BIDU', '网易': 'NTES',
+            '哔哩哔哩': 'BILI', 'B站': 'BILI',
+        }
+        
+        symbol = keyword.upper()
+        if keyword in ticker_map:
+            symbol = ticker_map[keyword]
+        
+        ticker = yf.Ticker(symbol)
+        news = ticker.news
+        
+        if news:
+            cutoff_date = datetime.now() - timedelta(days=days)
+            for item in news[:max_items]:
+                pub_time = None
+                if 'content' in item:
+                    content_data = item['content']
+                    title = content_data.get('title', '')
+                    summary = content_data.get('summary', '') or content_data.get('description', '')
+                    pub_date_str = content_data.get('pubDate', '')
+                    provider_name = content_data.get('provider', {}).get('displayName', 'Yahoo Finance')
+                    canonical_url = content_data.get('canonicalUrl', {}).get('url', '')
+                    
+                    if pub_date_str:
+                        try:
+                            pub_time = datetime.fromisoformat(pub_date_str.replace('Z', '+00:00')).replace(tzinfo=None)
+                        except:
+                            pass
+                else:
+                    title = item.get('title', '')
+                    summary = item.get('summary', '') or item.get('description', '')
+                    provider_name = item.get('publisher', 'Yahoo Finance')
+                    canonical_url = item.get('link', '')
+                    publish_ts = item.get('providerPublishTime', 0)
+                    if publish_ts:
+                        pub_time = datetime.fromtimestamp(publish_ts)
+                
+                if pub_time and pub_time < cutoff_date:
+                    continue
+                
+                results.append({
+                    'title': title,
+                    'content': summary[:500] if summary else '',
+                    'time': pub_time.strftime('%Y-%m-%d %H:%M') if pub_time else '',
+                    'source': f'Yahoo Finance ({provider_name})',
+                    'type': '美股新闻',
+                    'url': canonical_url
+                })
+    except ImportError:
+        print("yfinance未安装，跳过Yahoo Finance搜索", file=sys.stderr)
+    except Exception as e:
+        print(f"Yahoo Finance新闻获取失败: {e}", file=sys.stderr)
+    
+    return results
+
+
 def search_industry_news(keyword: str, days: int = 90, max_items: int = 10) -> List[Dict]:
     """搜索行业新闻"""
     headers = {
@@ -398,6 +466,11 @@ def search_all(keyword: str, days: int = 90, stock_code: str = '') -> Dict:
     announcement_results = search_company_announcement(keyword, stock_code, 10)
     if announcement_results:
         results['sources']['公司公告'] = announcement_results
+    
+    # Yahoo Finance（美股新闻）
+    yahoo_results = search_yahoo_finance(keyword, days, 15)
+    if yahoo_results:
+        results['sources']['Yahoo Finance'] = yahoo_results
     
     # 行业新闻
     industry_results = search_industry_news(keyword, days, 10)
