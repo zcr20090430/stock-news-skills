@@ -391,6 +391,10 @@ def get_stock_data(keyword: str, days: int = 30) -> Dict:
     else:
         code = symbol
     
+    # 初始化
+    klines = []
+    source = ''
+    
     # 美股优先使用Yahoo Finance
     if market == 'us':
         klines = get_yahoo_kline(code, days)
@@ -398,7 +402,8 @@ def get_stock_data(keyword: str, days: int = 30) -> Dict:
     
     if not klines:
         klines = get_eastmoney_kline(code, days, market)
-        source = 'eastmoney'
+        if klines:
+            source = 'eastmoney'
     
     if not klines and market == 'hk':
         code_stripped = code.lstrip('0')
